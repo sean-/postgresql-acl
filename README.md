@@ -2,10 +2,9 @@
 
 ## `pgacl` Library
 
-`pgacl` parses PostgreSQL's ACL syntax and returns a usable structure.
-
-Library documentation is available
-at
+`pgacl` parses
+[PostgreSQL's ACL syntax](https://www.postgresql.org/docs/current/static/sql-grant.html#SQL-GRANT-NOTES)
+and returns a usable structure.  Library documentation is available at
 [https://godoc.org/github.com/sean-/pgacl](https://godoc.org/github.com/sean-/pgacl).
 
 
