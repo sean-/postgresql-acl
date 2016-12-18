@@ -37,3 +37,46 @@ func main() {
 ACL String: foo=U
 ACL Struct: pgacl.Schema{Role:"foo", Create:true, CreateGrant:true, Usage:true, UsageGrant:false}
 ```
+
+## Supported PostgreSQL `aclitem` Types
+
+- column permissions
+- database
+- domain
+- foreign data wrappers
+- foreign server
+- function
+- language
+- large object
+- schema
+- sequences
+- table
+- table space
+- type
+
+## Notes
+
+The output from `String()` should match the ordering of characters in `aclitem`
+however not all types have been matched with PostgreSQL (yet).
+
+The target of each of these ACLs (e.g. schema name, table name, etc) is not
+contained within PostgreSQLs `aclitem` and it is expected this value is managed
+elsewhere in your object model.
+
+Arrays of `aclitem` are supposed to be iterated over by the caller, like:
+
+```go
+const schema = "public"
+var name, owner string
+var acls []string
+err := conn.QueryRow("SELECT n.nspname, pg_catalog.pg_get_userbyid(n.nspowner), COALESCE(n.nspacl, '{}'::aclitem[])::TEXT[] FROM pg_catalog.pg_namespace n WHERE n.nspname = $1", schema).Scan(&name, &owner, pq.Array(&acls))
+if err == nil {
+    for _, acl := range acls {
+        acl, err = pgacl.NewSchema(acl)
+        if err != nil {
+            return err
+        }
+        // ...
+    }
+}
+```
