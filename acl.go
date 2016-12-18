@@ -6,6 +6,7 @@ import (
 	"strings"
 )
 
+// ACL represents a single PostgreSQL `aclitem` entry.
 type ACL struct {
 	Privileges   Privileges
 	GrantOptions Privileges

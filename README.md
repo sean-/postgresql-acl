@@ -1,6 +1,6 @@
 # `postgresql-acl`
 
-## `postgresql-acl` Library
+## `acl` Library
 
 `acl` parses
 [PostgreSQL's ACL syntax](https://www.postgresql.org/docs/current/static/sql-grant.html#SQL-GRANT-NOTES)
@@ -71,14 +71,14 @@ ACL String to Struct: "foo=UC*/bar"
 
 ## Notes
 
-The output from `String()` should match the ordering of characters in `aclitem`
-however not all types have been matched with PostgreSQL (yet).
+The output from `String()` should match the ordering of characters in `aclitem`.
 
 The target of each of these ACLs (e.g. schema name, table name, etc) is not
 contained within PostgreSQLs `aclitem` and it is expected this value is managed
 elsewhere in your object model.
 
-Arrays of `aclitem` are supposed to be iterated over by the caller, like:
+Arrays of `aclitem` are supposed to be iterated over by the caller.  For
+example:
 
 ```go
 const schema = "public"
