@@ -44,6 +44,19 @@ func TestSchemaString(t *testing.T) {
 			},
 		},
 		{
+			name: "all with grant by role",
+			in:   "foo=U*C*/bar",
+			out:  "foo=U*C*/bar",
+			want: pgacl.Schema{
+				Role:        "foo",
+				GrantedBy:   "bar",
+				Create:      true,
+				CreateGrant: true,
+				Usage:       true,
+				UsageGrant:  true,
+			},
+		},
+		{
 			name: "all mixed grant1",
 			in:   "foo=U*C",
 			out:  "foo=U*C",
@@ -103,7 +116,7 @@ func TestSchemaString(t *testing.T) {
 			}
 
 			if err == nil && test.fail {
-				t.Errorf("expected failure")
+				t.Fatalf("expected failure")
 			}
 
 			if test.fail && err != nil {
@@ -111,11 +124,11 @@ func TestSchemaString(t *testing.T) {
 			}
 
 			if out := test.want.String(); out != test.out {
-				t.Errorf("want %+q got %+q", test.out, out)
+				t.Fatalf("want %+q got %+q", test.out, out)
 			}
 
 			if !reflect.DeepEqual(test.want, got) {
-				t.Errorf("bad: expected %v to equal %v", test.want, got)
+				t.Fatalf("bad: expected %v to equal %v", test.want, got)
 			}
 		})
 	}

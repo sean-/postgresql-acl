@@ -6,9 +6,10 @@ import (
 	"strings"
 )
 
-// Schema models the privileges of a schema
+// Schema models the privileges of a schema aclitem
 type Schema struct {
 	Role        string
+	GrantedBy   string
 	Create      bool
 	CreateGrant bool
 	Usage       bool
@@ -43,6 +44,7 @@ func NewSchema(aclStr string) (Schema, error) {
 		return false
 	}
 
+SCAN:
 	for i = idx + 1; i < aclLen; i++ {
 		switch aclStr[i] {
 		case 'C':
@@ -55,6 +57,11 @@ func NewSchema(aclStr string) (Schema, error) {
 			if withGrant() {
 				acl.UsageGrant = true
 			}
+		case '/':
+			if i+1 <= aclLen {
+				acl.GrantedBy = aclStr[i+1:]
+			}
+			break SCAN
 		default:
 			return Schema{}, fmt.Errorf("invalid byte %c in schema ACL at %d: %+q", aclStr[i], i, aclStr)
 		}
@@ -83,6 +90,10 @@ func (s Schema) String() string {
 		if s.CreateGrant {
 			fmt.Fprint(b, "*")
 		}
+	}
+
+	if s.GrantedBy != "" {
+		fmt.Fprint(b, "/", s.GrantedBy)
 	}
 
 	return b.String()
