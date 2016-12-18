@@ -70,6 +70,33 @@ SCAN:
 	return acl, nil
 }
 
+// Merge merges in into the receiver
+func (s Schema) Merge(in Schema) {
+	if in.Role != "" {
+		s.Role = in.Role
+	}
+
+	if in.GrantedBy != "" {
+		s.GrantedBy = in.GrantedBy
+	}
+
+	if in.Create {
+		s.Create = in.Create
+	}
+
+	if in.CreateGrant {
+		s.CreateGrant = in.CreateGrant
+	}
+
+	if in.Usage {
+		s.Usage = in.Usage
+	}
+
+	if in.UsageGrant {
+		s.UsageGrant = in.UsageGrant
+	}
+}
+
 // String creates a PostgreSQL native output for the ACLs that apply to a
 // schema.
 func (s Schema) String() string {
