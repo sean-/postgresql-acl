@@ -18,7 +18,7 @@ type Sequence struct {
 	UsageGrant  bool
 }
 
-const numSequenceOpts = 4
+const numSequenceOpts = 6
 
 // NewSequence parses a PostgreSQL ACL string for a sequence and returns a Sequence
 // object
