@@ -1,10 +1,10 @@
-package pgacl_test
+package acl_test
 
 import (
 	"reflect"
 	"testing"
 
-	"github.com/sean-/pgacl"
+	acl "github.com/sean-/postgresql-acl"
 )
 
 func TestLargeObjectString(t *testing.T) {
@@ -12,69 +12,101 @@ func TestLargeObjectString(t *testing.T) {
 		name string
 		in   string
 		out  string
-		want pgacl.LargeObject
+		want acl.LargeObject
 		fail bool
 	}{
 		{
 			name: "default",
 			in:   "foo=",
 			out:  "foo=",
-			want: pgacl.LargeObject{Role: "foo"},
+			want: acl.LargeObject{
+				ACL: acl.ACL{
+					Role: "foo",
+				},
+			},
 		},
 		{
 			name: "all without grant",
 			in:   "foo=rw",
 			out:  "foo=rw",
-			want: pgacl.LargeObject{
-				Role:   "foo",
-				Select: true,
-				Update: true,
+			want: acl.LargeObject{
+				ACL: acl.ACL{
+					Role:       "foo",
+					Privileges: acl.Select | acl.Update,
+				},
 			},
 		},
 		{
 			name: "all with grant",
 			in:   "foo=r*w*",
 			out:  "foo=r*w*",
-			want: pgacl.LargeObject{
-				Role:        "foo",
-				Select:      true,
-				SelectGrant: true,
-				Update:      true,
-				UpdateGrant: true,
+			want: acl.LargeObject{
+				ACL: acl.ACL{
+					Role:         "foo",
+					Privileges:   acl.Select | acl.Update,
+					GrantOptions: acl.Select | acl.Update,
+				},
 			},
 		},
 		{
 			name: "all with grant by role",
 			in:   "foo=r*w*/bar",
 			out:  "foo=r*w*/bar",
-			want: pgacl.LargeObject{
-				Role:        "foo",
-				GrantedBy:   "bar",
-				Select:      true,
-				SelectGrant: true,
-				Update:      true,
-				UpdateGrant: true,
+			want: acl.LargeObject{
+				ACL: acl.ACL{
+					Role:         "foo",
+					GrantedBy:    "bar",
+					Privileges:   acl.Select | acl.Update,
+					GrantOptions: acl.Select | acl.Update,
+				},
+			},
+		},
+		{
+			name: "all mixed grant1",
+			in:   "foo=rw*",
+			out:  "foo=rw*",
+			want: acl.LargeObject{
+				ACL: acl.ACL{
+					Role:         "foo",
+					Privileges:   acl.Select | acl.Update,
+					GrantOptions: acl.Update,
+				},
+			},
+		},
+		{
+			name: "all mixed grant2",
+			in:   "foo=r*w",
+			out:  "foo=r*w",
+			want: acl.LargeObject{
+				ACL: acl.ACL{
+					Role:         "foo",
+					Privileges:   acl.Select | acl.Update,
+					GrantOptions: acl.Select,
+				},
 			},
 		},
 		{
 			name: "public all",
-			in:   "=r",
-			out:  "=r",
-			want: pgacl.LargeObject{
-				Role:   "",
-				Select: true,
+			in:   "=r*w*",
+			out:  "=r*w*",
+			want: acl.LargeObject{
+				ACL: acl.ACL{
+					Role:         "",
+					Privileges:   acl.Select | acl.Update,
+					GrantOptions: acl.Select | acl.Update,
+				},
 			},
 		},
 		{
 			name: "invalid input1",
 			in:   "bar*",
-			want: pgacl.LargeObject{},
+			want: acl.LargeObject{},
 			fail: true,
 		},
 		{
 			name: "invalid input2",
 			in:   "%",
-			want: pgacl.LargeObject{},
+			want: acl.LargeObject{},
 			fail: true,
 		},
 	}
@@ -85,9 +117,9 @@ func TestLargeObjectString(t *testing.T) {
 		}
 
 		t.Run(test.name, func(t *testing.T) {
-			got, err := pgacl.NewLargeObject(test.in)
+			aclItem, err := acl.Parse(test.in)
 			if err != nil && !test.fail {
-				t.Fatalf("unable to parse sequence ACL %+q: %v", test.in, err)
+				t.Fatalf("unable to parse ACLItem %+q: %v", test.in, err)
 			}
 
 			if err == nil && test.fail {
@@ -96,6 +128,11 @@ func TestLargeObjectString(t *testing.T) {
 
 			if test.fail && err != nil {
 				return
+			}
+
+			got, err := acl.NewLargeObject(aclItem)
+			if err != nil && !test.fail {
+				t.Fatalf("unable to parse large object ACL %+q: %v", test.in, err)
 			}
 
 			if out := test.want.String(); out != test.out {

@@ -1,10 +1,10 @@
-package pgacl_test
+package acl_test
 
 import (
 	"reflect"
 	"testing"
 
-	"github.com/sean-/pgacl"
+	acl "github.com/sean-/postgresql-acl"
 )
 
 func TestDatabaseString(t *testing.T) {
@@ -12,74 +12,76 @@ func TestDatabaseString(t *testing.T) {
 		name string
 		in   string
 		out  string
-		want pgacl.Database
+		want acl.Database
 		fail bool
 	}{
 		{
 			name: "default",
 			in:   "foo=",
 			out:  "foo=",
-			want: pgacl.Database{Role: "foo"},
+			want: acl.Database{
+				ACL: acl.ACL{
+					Role: "foo",
+				},
+			},
 		},
 		{
 			name: "all without grant",
 			in:   "foo=CTc",
 			out:  "foo=CTc",
-			want: pgacl.Database{
-				Role:      "foo",
-				Create:    true,
-				Temporary: true,
-				Connect:   true,
+			want: acl.Database{
+				ACL: acl.ACL{
+					Role:       "foo",
+					Privileges: acl.Create | acl.Temporary | acl.Connect,
+				},
 			},
 		},
 		{
 			name: "all with grant",
 			in:   "foo=C*T*c*",
 			out:  "foo=C*T*c*",
-			want: pgacl.Database{
-				Role:           "foo",
-				Connect:        true,
-				ConnectGrant:   true,
-				Create:         true,
-				CreateGrant:    true,
-				Temporary:      true,
-				TemporaryGrant: true,
+			want: acl.Database{
+				ACL: acl.ACL{
+					Role:         "foo",
+					Privileges:   acl.Create | acl.Temporary | acl.Connect,
+					GrantOptions: acl.Create | acl.Temporary | acl.Connect,
+				},
 			},
 		},
 		{
 			name: "all with grant by role",
 			in:   "foo=C*T*c*/bar",
 			out:  "foo=C*T*c*/bar",
-			want: pgacl.Database{
-				Role:           "foo",
-				GrantedBy:      "bar",
-				Connect:        true,
-				ConnectGrant:   true,
-				Create:         true,
-				CreateGrant:    true,
-				Temporary:      true,
-				TemporaryGrant: true,
+			want: acl.Database{
+				ACL: acl.ACL{
+					Role:         "foo",
+					GrantedBy:    "bar",
+					Privileges:   acl.Create | acl.Temporary | acl.Connect,
+					GrantOptions: acl.Create | acl.Temporary | acl.Connect,
+				},
 			},
 		},
 		{
 			name: "public all",
 			in:   "=c",
 			out:  "=c",
-			want: pgacl.Database{
-				Role:    "",
-				Connect: true,
+			want: acl.Database{
+				ACL: acl.ACL{
+					Role:       "",
+					Privileges: acl.Connect,
+				},
 			},
 		},
 		{
 			name: "invalid input1",
 			in:   "bar*",
-			want: pgacl.Database{},
+			want: acl.Database{},
 			fail: true,
 		},
 		{
 			name: "invalid input2",
 			in:   "%",
-			want: pgacl.Database{},
+			want: acl.Database{},
 			fail: true,
 		},
 	}
@@ -90,7 +92,20 @@ func TestDatabaseString(t *testing.T) {
 		}
 
 		t.Run(test.name, func(t *testing.T) {
-			got, err := pgacl.NewDatabase(test.in)
+			aclItem, err := acl.Parse(test.in)
+			if err != nil && !test.fail {
+				t.Fatalf("unable to parse ACLItem %+q: %v", test.in, err)
+			}
+
+			if err == nil && test.fail {
+				t.Fatalf("expected failure")
+			}
+
+			if test.fail && err != nil {
+				return
+			}
+
+			got, err := acl.NewDatabase(aclItem)
 			if err != nil && !test.fail {
 				t.Fatalf("unable to parse database ACL %+q: %v", test.in, err)
 			}

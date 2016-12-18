@@ -1,10 +1,10 @@
-package pgacl_test
+package acl_test
 
 import (
 	"reflect"
 	"testing"
 
-	"github.com/sean-/pgacl"
+	acl "github.com/sean-/postgresql-acl"
 )
 
 func TestLanguageString(t *testing.T) {
@@ -12,84 +12,100 @@ func TestLanguageString(t *testing.T) {
 		name string
 		in   string
 		out  string
-		want pgacl.Language
+		want acl.Language
 		fail bool
 	}{
 		{
 			name: "default",
 			in:   "foo=",
 			out:  "foo=",
-			want: pgacl.Language{Role: "foo"},
+			want: acl.Language{
+				ACL: acl.ACL{
+					Role: "foo",
+				},
+			},
 		},
 		{
 			name: "all without grant",
 			in:   "foo=U",
 			out:  "foo=U",
-			want: pgacl.Language{
-				Role:  "foo",
-				Usage: true,
+			want: acl.Language{
+				ACL: acl.ACL{
+					Role:       "foo",
+					Privileges: acl.Usage,
+				},
 			},
 		},
 		{
 			name: "all with grant",
 			in:   "foo=U*",
 			out:  "foo=U*",
-			want: pgacl.Language{
-				Role:       "foo",
-				Usage:      true,
-				UsageGrant: true,
+			want: acl.Language{
+				ACL: acl.ACL{
+					Role:         "foo",
+					Privileges:   acl.Usage,
+					GrantOptions: acl.Usage,
+				},
 			},
 		},
 		{
 			name: "all with grant by role",
 			in:   "foo=U*/bar",
 			out:  "foo=U*/bar",
-			want: pgacl.Language{
-				Role:       "foo",
-				GrantedBy:  "bar",
-				Usage:      true,
-				UsageGrant: true,
+			want: acl.Language{
+				ACL: acl.ACL{
+					Role:         "foo",
+					GrantedBy:    "bar",
+					Privileges:   acl.Usage,
+					GrantOptions: acl.Usage,
+				},
 			},
 		},
 		{
 			name: "all mixed grant1",
 			in:   "foo=U*",
 			out:  "foo=U*",
-			want: pgacl.Language{
-				Role:       "foo",
-				Usage:      true,
-				UsageGrant: true,
+			want: acl.Language{
+				ACL: acl.ACL{
+					Role:         "foo",
+					Privileges:   acl.Usage,
+					GrantOptions: acl.Usage,
+				},
 			},
 		},
 		{
 			name: "all mixed grant2",
 			in:   "foo=U",
 			out:  "foo=U",
-			want: pgacl.Language{
-				Role:  "foo",
-				Usage: true,
+			want: acl.Language{
+				ACL: acl.ACL{
+					Role:       "foo",
+					Privileges: acl.Usage,
+				},
 			},
 		},
 		{
 			name: "public all",
 			in:   "=U*",
 			out:  "=U*",
-			want: pgacl.Language{
-				Role:       "",
-				Usage:      true,
-				UsageGrant: true,
+			want: acl.Language{
+				ACL: acl.ACL{
+					Role:         "",
+					Privileges:   acl.Usage,
+					GrantOptions: acl.Usage,
+				},
 			},
 		},
 		{
 			name: "invalid input1",
 			in:   "bar*",
-			want: pgacl.Language{},
+			want: acl.Language{},
 			fail: true,
 		},
 		{
 			name: "invalid input2",
 			in:   "%",
-			want: pgacl.Language{},
+			want: acl.Language{},
 			fail: true,
 		},
 	}
@@ -100,7 +116,20 @@ func TestLanguageString(t *testing.T) {
 		}
 
 		t.Run(test.name, func(t *testing.T) {
-			got, err := pgacl.NewLanguage(test.in)
+			aclItem, err := acl.Parse(test.in)
+			if err != nil && !test.fail {
+				t.Fatalf("unable to parse ACLItem %+q: %v", test.in, err)
+			}
+
+			if err == nil && test.fail {
+				t.Fatalf("expected failure")
+			}
+
+			if test.fail && err != nil {
+				return
+			}
+
+			got, err := acl.NewLanguage(aclItem)
 			if err != nil && !test.fail {
 				t.Fatalf("unable to parse language ACL %+q: %v", test.in, err)
 			}

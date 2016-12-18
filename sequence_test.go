@@ -1,10 +1,10 @@
-package pgacl_test
+package acl_test
 
 import (
 	"reflect"
 	"testing"
 
-	"github.com/sean-/pgacl"
+	acl "github.com/sean-/postgresql-acl"
 )
 
 func TestSequenceString(t *testing.T) {
@@ -12,75 +12,76 @@ func TestSequenceString(t *testing.T) {
 		name string
 		in   string
 		out  string
-		want pgacl.Sequence
+		want acl.Sequence
 		fail bool
 	}{
 		{
 			name: "default",
 			in:   "foo=",
 			out:  "foo=",
-			want: pgacl.Sequence{Role: "foo"},
+			want: acl.Sequence{
+				ACL: acl.ACL{
+					Role: "foo",
+				},
+			},
 		},
 		{
 			name: "all without grant",
 			in:   "foo=rwU",
 			out:  "foo=rwU",
-			want: pgacl.Sequence{
-				Role:   "foo",
-				Select: true,
-				Update: true,
-				Usage:  true,
+			want: acl.Sequence{
+				ACL: acl.ACL{
+					Role:       "foo",
+					Privileges: acl.Select | acl.Update | acl.Usage,
+				},
 			},
 		},
 		{
 			name: "all with grant",
 			in:   "foo=r*w*U*",
 			out:  "foo=r*w*U*",
-			want: pgacl.Sequence{
-				Role:        "foo",
-				Select:      true,
-				SelectGrant: true,
-				Update:      true,
-				UpdateGrant: true,
-				Usage:       true,
-				UsageGrant:  true,
+			want: acl.Sequence{
+				ACL: acl.ACL{
+					Role:         "foo",
+					Privileges:   acl.Select | acl.Update | acl.Usage,
+					GrantOptions: acl.Select | acl.Update | acl.Usage,
+				},
 			},
 		},
 		{
-			name: "all with grant by role",
+			name: "all with grant and by",
 			in:   "foo=r*w*U*/bar",
 			out:  "foo=r*w*U*/bar",
-			want: pgacl.Sequence{
-				Role:        "foo",
-				GrantedBy:   "bar",
-				Select:      true,
-				SelectGrant: true,
-				Update:      true,
-				UpdateGrant: true,
-				Usage:       true,
-				UsageGrant:  true,
+			want: acl.Sequence{
+				ACL: acl.ACL{
+					Role:         "foo",
+					GrantedBy:    "bar",
+					Privileges:   acl.Select | acl.Update | acl.Usage,
+					GrantOptions: acl.Select | acl.Update | acl.Usage,
+				},
 			},
 		},
 		{
 			name: "public all",
 			in:   "=rU",
 			out:  "=rU",
-			want: pgacl.Sequence{
-				Role:   "",
-				Select: true,
-				Usage:  true,
+			want: acl.Sequence{
+				ACL: acl.ACL{
+					Role:       "",
+					Privileges: acl.Select | acl.Usage,
+				},
 			},
 		},
 		{
 			name: "invalid input1",
 			in:   "bar*",
-			want: pgacl.Sequence{},
+			want: acl.Sequence{},
 			fail: true,
 		},
 		{
 			name: "invalid input2",
 			in:   "%",
-			want: pgacl.Sequence{},
+			want: acl.Sequence{},
 			fail: true,
 		},
 	}
@@ -91,9 +92,9 @@ func TestSequenceString(t *testing.T) {
 		}
 
 		t.Run(test.name, func(t *testing.T) {
-			got, err := pgacl.NewSequence(test.in)
+			aclItem, err := acl.Parse(test.in)
 			if err != nil && !test.fail {
-				t.Fatalf("unable to parse sequence ACL %+q: %v", test.in, err)
+				t.Fatalf("unable to parse ACLItem %+q: %v", test.in, err)
 			}
 
 			if err == nil && test.fail {
@@ -102,6 +103,11 @@ func TestSequenceString(t *testing.T) {
 
 			if test.fail && err != nil {
 				return
+			}
+
+			got, err := acl.NewSequence(aclItem)
+			if err != nil && !test.fail {
+				t.Fatalf("unable to parse sequence ACL %+q: %v", test.in, err)
 			}
 
 			if out := test.want.String(); out != test.out {

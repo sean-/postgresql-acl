@@ -1,10 +1,10 @@
-package pgacl_test
+package acl_test
 
 import (
 	"reflect"
 	"testing"
 
-	"github.com/sean-/pgacl"
+	acl "github.com/sean-/postgresql-acl"
 )
 
 func TestColumnString(t *testing.T) {
@@ -12,79 +12,91 @@ func TestColumnString(t *testing.T) {
 		name string
 		in   string
 		out  string
-		want pgacl.Column
+		want acl.Column
 		fail bool
 	}{
 		{
 			name: "default",
 			in:   "foo=",
 			out:  "foo=",
-			want: pgacl.Column{Role: "foo"},
+			want: acl.Column{
+				ACL: acl.ACL{
+					Role: "foo",
+				},
+			},
 		},
 		{
 			name: "all without grant",
 			in:   "foo=arwx",
 			out:  "foo=arwx",
-			want: pgacl.Column{
-				Role:       "foo",
-				Insert:     true,
-				References: true,
-				Select:     true,
-				Update:     true,
+			want: acl.Column{
+				ACL: acl.ACL{
+					Role: "foo",
+					Privileges: acl.Insert |
+						acl.References |
+						acl.Select |
+						acl.Update,
+				},
 			},
 		},
 		{
 			name: "all with grant",
 			in:   "foo=a*r*w*x*",
 			out:  "foo=a*r*w*x*",
-			want: pgacl.Column{
-				Role:            "foo",
-				Insert:          true,
-				InsertGrant:     true,
-				References:      true,
-				ReferencesGrant: true,
-				Select:          true,
-				SelectGrant:     true,
-				Update:          true,
-				UpdateGrant:     true,
+			want: acl.Column{
+				ACL: acl.ACL{
+					Role: "foo",
+					Privileges: acl.Insert |
+						acl.References |
+						acl.Select |
+						acl.Update,
+					GrantOptions: acl.Insert |
+						acl.References |
+						acl.Select |
+						acl.Update,
+				},
 			},
 		},
 		{
 			name: "all with grant and by",
 			in:   "foo=a*r*w*x*/bar",
 			out:  "foo=a*r*w*x*/bar",
-			want: pgacl.Column{
-				Role:            "foo",
-				GrantedBy:       "bar",
-				Insert:          true,
-				InsertGrant:     true,
-				References:      true,
-				ReferencesGrant: true,
-				Select:          true,
-				SelectGrant:     true,
-				Update:          true,
-				UpdateGrant:     true,
+			want: acl.Column{
+				ACL: acl.ACL{
+					Role:      "foo",
+					GrantedBy: "bar",
+					Privileges: acl.Insert |
+						acl.References |
+						acl.Select |
+						acl.Update,
+					GrantOptions: acl.Insert |
+						acl.References |
+						acl.Select |
+						acl.Update,
+				},
 			},
 		},
 		{
 			name: "public all",
 			in:   "=r",
 			out:  "=r",
-			want: pgacl.Column{
-				Role:   "",
-				Select: true,
+			want: acl.Column{
+				ACL: acl.ACL{
+					Role:       "",
+					Privileges: acl.Select,
+				},
 			},
 		},
 		{
 			name: "invalid input1",
 			in:   "bar*",
-			want: pgacl.Column{},
+			want: acl.Column{},
 			fail: true,
 		},
 		{
 			name: "invalid input2",
 			in:   "%",
-			want: pgacl.Column{},
+			want: acl.Column{},
 			fail: true,
 		},
 	}
@@ -95,9 +107,9 @@ func TestColumnString(t *testing.T) {
 		}
 
 		t.Run(test.name, func(t *testing.T) {
-			got, err := pgacl.NewColumn(test.in)
+			aclItem, err := acl.Parse(test.in)
 			if err != nil && !test.fail {
-				t.Fatalf("unable to parse table ACL %+q: %v", test.in, err)
+				t.Fatalf("unable to parse ACLItem %+q: %v", test.in, err)
 			}
 
 			if err == nil && test.fail {
@@ -106,6 +118,11 @@ func TestColumnString(t *testing.T) {
 
 			if test.fail && err != nil {
 				return
+			}
+
+			got, err := acl.NewColumn(aclItem)
+			if err != nil && !test.fail {
+				t.Fatalf("unable to parse column ACL %+q: %v", test.in, err)
 			}
 
 			if out := test.want.String(); out != test.out {

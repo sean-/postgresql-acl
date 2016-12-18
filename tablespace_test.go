@@ -1,10 +1,10 @@
-package pgacl_test
+package acl_test
 
 import (
 	"reflect"
 	"testing"
 
-	"github.com/sean-/pgacl"
+	acl "github.com/sean-/postgresql-acl"
 )
 
 func TestTablespaceString(t *testing.T) {
@@ -12,64 +12,100 @@ func TestTablespaceString(t *testing.T) {
 		name string
 		in   string
 		out  string
-		want pgacl.Tablespace
+		want acl.Tablespace
 		fail bool
 	}{
 		{
 			name: "default",
 			in:   "foo=",
 			out:  "foo=",
-			want: pgacl.Tablespace{Role: "foo"},
+			want: acl.Tablespace{
+				ACL: acl.ACL{
+					Role: "foo",
+				},
+			},
 		},
 		{
 			name: "all without grant",
 			in:   "foo=C",
 			out:  "foo=C",
-			want: pgacl.Tablespace{
-				Role:   "foo",
-				Create: true,
+			want: acl.Tablespace{
+				ACL: acl.ACL{
+					Role:       "foo",
+					Privileges: acl.Create,
+				},
 			},
 		},
 		{
 			name: "all with grant",
 			in:   "foo=C*",
 			out:  "foo=C*",
-			want: pgacl.Tablespace{
-				Role:        "foo",
-				Create:      true,
-				CreateGrant: true,
+			want: acl.Tablespace{
+				ACL: acl.ACL{
+					Role:         "foo",
+					Privileges:   acl.Create,
+					GrantOptions: acl.Create,
+				},
 			},
 		},
 		{
 			name: "all with grant by role",
 			in:   "foo=C*/bar",
 			out:  "foo=C*/bar",
-			want: pgacl.Tablespace{
-				Role:        "foo",
-				GrantedBy:   "bar",
-				Create:      true,
-				CreateGrant: true,
+			want: acl.Tablespace{
+				ACL: acl.ACL{
+					Role:         "foo",
+					GrantedBy:    "bar",
+					Privileges:   acl.Create,
+					GrantOptions: acl.Create,
+				},
+			},
+		},
+		{
+			name: "all mixed grant1",
+			in:   "foo=C*",
+			out:  "foo=C*",
+			want: acl.Tablespace{
+				ACL: acl.ACL{
+					Role:         "foo",
+					Privileges:   acl.Create,
+					GrantOptions: acl.Create,
+				},
+			},
+		},
+		{
+			name: "all mixed grant2",
+			in:   "foo=C",
+			out:  "foo=C",
+			want: acl.Tablespace{
+				ACL: acl.ACL{
+					Role:       "foo",
+					Privileges: acl.Create,
+				},
 			},
 		},
 		{
 			name: "public all",
-			in:   "=C",
-			out:  "=C",
-			want: pgacl.Tablespace{
-				Role:   "",
-				Create: true,
+			in:   "=C*",
+			out:  "=C*",
+			want: acl.Tablespace{
+				ACL: acl.ACL{
+					Role:         "",
+					Privileges:   acl.Create,
+					GrantOptions: acl.Create,
+				},
 			},
 		},
 		{
 			name: "invalid input1",
 			in:   "bar*",
-			want: pgacl.Tablespace{},
+			want: acl.Tablespace{},
 			fail: true,
 		},
 		{
 			name: "invalid input2",
 			in:   "%",
-			want: pgacl.Tablespace{},
+			want: acl.Tablespace{},
 			fail: true,
 		},
 	}
@@ -80,7 +116,20 @@ func TestTablespaceString(t *testing.T) {
 		}
 
 		t.Run(test.name, func(t *testing.T) {
-			got, err := pgacl.NewTablespace(test.in)
+			aclItem, err := acl.Parse(test.in)
+			if err != nil && !test.fail {
+				t.Fatalf("unable to parse ACLItem %+q: %v", test.in, err)
+			}
+
+			if err == nil && test.fail {
+				t.Fatalf("expected failure")
+			}
+
+			if test.fail && err != nil {
+				return
+			}
+
+			got, err := acl.NewTablespace(aclItem)
 			if err != nil && !test.fail {
 				t.Fatalf("unable to parse tablespace ACL %+q: %v", test.in, err)
 			}

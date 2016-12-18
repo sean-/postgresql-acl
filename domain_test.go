@@ -1,10 +1,10 @@
-package pgacl_test
+package acl_test
 
 import (
 	"reflect"
 	"testing"
 
-	"github.com/sean-/pgacl"
+	acl "github.com/sean-/postgresql-acl"
 )
 
 func TestDomainString(t *testing.T) {
@@ -12,84 +12,100 @@ func TestDomainString(t *testing.T) {
 		name string
 		in   string
 		out  string
-		want pgacl.Domain
+		want acl.Domain
 		fail bool
 	}{
 		{
 			name: "default",
 			in:   "foo=",
 			out:  "foo=",
-			want: pgacl.Domain{Role: "foo"},
+			want: acl.Domain{
+				ACL: acl.ACL{
+					Role: "foo",
+				},
+			},
 		},
 		{
 			name: "all without grant",
 			in:   "foo=U",
 			out:  "foo=U",
-			want: pgacl.Domain{
-				Role:  "foo",
-				Usage: true,
+			want: acl.Domain{
+				ACL: acl.ACL{
+					Role:       "foo",
+					Privileges: acl.Usage,
+				},
 			},
 		},
 		{
 			name: "all with grant",
 			in:   "foo=U*",
 			out:  "foo=U*",
-			want: pgacl.Domain{
-				Role:       "foo",
-				Usage:      true,
-				UsageGrant: true,
+			want: acl.Domain{
+				ACL: acl.ACL{
+					Role:         "foo",
+					Privileges:   acl.Usage,
+					GrantOptions: acl.Usage,
+				},
 			},
 		},
 		{
 			name: "all with grant by role",
 			in:   "foo=U*/bar",
 			out:  "foo=U*/bar",
-			want: pgacl.Domain{
-				Role:       "foo",
-				GrantedBy:  "bar",
-				Usage:      true,
-				UsageGrant: true,
+			want: acl.Domain{
+				ACL: acl.ACL{
+					Role:         "foo",
+					GrantedBy:    "bar",
+					Privileges:   acl.Usage,
+					GrantOptions: acl.Usage,
+				},
 			},
 		},
 		{
 			name: "all mixed grant1",
 			in:   "foo=U*",
 			out:  "foo=U*",
-			want: pgacl.Domain{
-				Role:       "foo",
-				Usage:      true,
-				UsageGrant: true,
+			want: acl.Domain{
+				ACL: acl.ACL{
+					Role:         "foo",
+					Privileges:   acl.Usage,
+					GrantOptions: acl.Usage,
+				},
 			},
 		},
 		{
 			name: "all mixed grant2",
 			in:   "foo=U",
 			out:  "foo=U",
-			want: pgacl.Domain{
-				Role:  "foo",
-				Usage: true,
+			want: acl.Domain{
+				ACL: acl.ACL{
+					Role:       "foo",
+					Privileges: acl.Usage,
+				},
 			},
 		},
 		{
 			name: "public all",
 			in:   "=U*",
 			out:  "=U*",
-			want: pgacl.Domain{
-				Role:       "",
-				Usage:      true,
-				UsageGrant: true,
+			want: acl.Domain{
+				ACL: acl.ACL{
+					Role:         "",
+					Privileges:   acl.Usage,
+					GrantOptions: acl.Usage,
+				},
 			},
 		},
 		{
 			name: "invalid input1",
 			in:   "bar*",
-			want: pgacl.Domain{},
+			want: acl.Domain{},
 			fail: true,
 		},
 		{
 			name: "invalid input2",
 			in:   "%",
-			want: pgacl.Domain{},
+			want: acl.Domain{},
 			fail: true,
 		},
 	}
@@ -100,7 +116,20 @@ func TestDomainString(t *testing.T) {
 		}
 
 		t.Run(test.name, func(t *testing.T) {
-			got, err := pgacl.NewDomain(test.in)
+			aclItem, err := acl.Parse(test.in)
+			if err != nil && !test.fail {
+				t.Fatalf("unable to parse ACLItem %+q: %v", test.in, err)
+			}
+
+			if err == nil && test.fail {
+				t.Fatalf("expected failure")
+			}
+
+			if test.fail && err != nil {
+				return
+			}
+
+			got, err := acl.NewDomain(aclItem)
 			if err != nil && !test.fail {
 				t.Fatalf("unable to parse domain ACL %+q: %v", test.in, err)
 			}

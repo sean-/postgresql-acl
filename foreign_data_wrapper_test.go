@@ -1,10 +1,10 @@
-package pgacl_test
+package acl_test
 
 import (
 	"reflect"
 	"testing"
 
-	"github.com/sean-/pgacl"
+	acl "github.com/sean-/postgresql-acl"
 )
 
 func TestForeignDataWrapperString(t *testing.T) {
@@ -12,84 +12,100 @@ func TestForeignDataWrapperString(t *testing.T) {
 		name string
 		in   string
 		out  string
-		want pgacl.ForeignDataWrapper
+		want acl.ForeignDataWrapper
 		fail bool
 	}{
 		{
 			name: "default",
 			in:   "foo=",
 			out:  "foo=",
-			want: pgacl.ForeignDataWrapper{Role: "foo"},
+			want: acl.ForeignDataWrapper{
+				ACL: acl.ACL{
+					Role: "foo",
+				},
+			},
 		},
 		{
 			name: "all without grant",
 			in:   "foo=U",
 			out:  "foo=U",
-			want: pgacl.ForeignDataWrapper{
-				Role:  "foo",
-				Usage: true,
+			want: acl.ForeignDataWrapper{
+				ACL: acl.ACL{
+					Role:       "foo",
+					Privileges: acl.Usage,
+				},
 			},
 		},
 		{
 			name: "all with grant",
 			in:   "foo=U*",
 			out:  "foo=U*",
-			want: pgacl.ForeignDataWrapper{
-				Role:       "foo",
-				Usage:      true,
-				UsageGrant: true,
+			want: acl.ForeignDataWrapper{
+				ACL: acl.ACL{
+					Role:         "foo",
+					Privileges:   acl.Usage,
+					GrantOptions: acl.Usage,
+				},
 			},
 		},
 		{
 			name: "all with grant by role",
 			in:   "foo=U*/bar",
 			out:  "foo=U*/bar",
-			want: pgacl.ForeignDataWrapper{
-				Role:       "foo",
-				GrantedBy:  "bar",
-				Usage:      true,
-				UsageGrant: true,
+			want: acl.ForeignDataWrapper{
+				ACL: acl.ACL{
+					Role:         "foo",
+					GrantedBy:    "bar",
+					Privileges:   acl.Usage,
+					GrantOptions: acl.Usage,
+				},
 			},
 		},
 		{
 			name: "all mixed grant1",
 			in:   "foo=U*",
 			out:  "foo=U*",
-			want: pgacl.ForeignDataWrapper{
-				Role:       "foo",
-				Usage:      true,
-				UsageGrant: true,
+			want: acl.ForeignDataWrapper{
+				ACL: acl.ACL{
+					Role:         "foo",
+					Privileges:   acl.Usage,
+					GrantOptions: acl.Usage,
+				},
 			},
 		},
 		{
 			name: "all mixed grant2",
 			in:   "foo=U",
 			out:  "foo=U",
-			want: pgacl.ForeignDataWrapper{
-				Role:  "foo",
-				Usage: true,
+			want: acl.ForeignDataWrapper{
+				ACL: acl.ACL{
+					Role:       "foo",
+					Privileges: acl.Usage,
+				},
 			},
 		},
 		{
 			name: "public all",
 			in:   "=U*",
 			out:  "=U*",
-			want: pgacl.ForeignDataWrapper{
-				Role:       "",
-				Usage:      true,
-				UsageGrant: true,
+			want: acl.ForeignDataWrapper{
+				ACL: acl.ACL{
+					Role:         "",
+					Privileges:   acl.Usage,
+					GrantOptions: acl.Usage,
+				},
 			},
 		},
 		{
 			name: "invalid input1",
 			in:   "bar*",
-			want: pgacl.ForeignDataWrapper{},
+			want: acl.ForeignDataWrapper{},
 			fail: true,
 		},
 		{
 			name: "invalid input2",
 			in:   "%",
-			want: pgacl.ForeignDataWrapper{},
+			want: acl.ForeignDataWrapper{},
 			fail: true,
 		},
 	}
@@ -100,9 +116,22 @@ func TestForeignDataWrapperString(t *testing.T) {
 		}
 
 		t.Run(test.name, func(t *testing.T) {
-			got, err := pgacl.NewForeignDataWrapper(test.in)
+			aclItem, err := acl.Parse(test.in)
 			if err != nil && !test.fail {
-				t.Fatalf("unable to parse fdw ACL %+q: %v", test.in, err)
+				t.Fatalf("unable to parse ACLItem %+q: %v", test.in, err)
+			}
+
+			if err == nil && test.fail {
+				t.Fatalf("expected failure")
+			}
+
+			if test.fail && err != nil {
+				return
+			}
+
+			got, err := acl.NewForeignDataWrapper(aclItem)
+			if err != nil && !test.fail {
+				t.Fatalf("unable to parse FDW ACL %+q: %v", test.in, err)
 			}
 
 			if err == nil && test.fail {

@@ -1,11 +1,11 @@
-# pgacl
+# `postgresql-acl`
 
-## `pgacl` Library
+## `postgresql-acl` Library
 
-`pgacl` parses
+`acl` parses
 [PostgreSQL's ACL syntax](https://www.postgresql.org/docs/current/static/sql-grant.html#SQL-GRANT-NOTES)
 and returns a usable structure.  Library documentation is available at
-[https://godoc.org/github.com/sean-/pgacl](https://godoc.org/github.com/sean-/pgacl).
+[https://godoc.org/github.com/sean-/postgresql-acl](https://godoc.org/github.com/sean-/postgresql-acl).
 
 
 ```go
@@ -14,28 +14,43 @@ package main
 import (
 	"fmt"
 
-	"github.com/sean-/pgacl"
+	"github.com/sean-/postgresql-acl"
 )
 
-func main() {
-	acl := pgacl.Schema{
-		Role:  "foo",
-		Usage: true,
+func structToString() acl.ACL {
+	return acl.ACL{
+		Role:         "foo",
+		GrantedBy:    "bar",
+		Privileges:   acl.Usage | acl.Create,
+		GrantOptions: acl.Create,
 	}
-	fmt.Printf("ACL String: %s\n", acl.String())
+}
 
-	acl, err := pgacl.NewSchema("foo=C*U")
+func stringToStruct() acl.Schema {
+	// Parse an aclitem string
+	aclitem, err := acl.Parse("foo=C*U/bar")
 	if err != nil {
-		fmt.Errorf("Bad: %v", err)
+		panic(fmt.Sprintf("bad: %v", err))
 	}
 
-	fmt.Printf("ACL Struct: %#v\n", acl)
+	// Verify that ACL permissions are appropriate for a schema type
+	schema, err := acl.NewSchema(aclitem)
+	if err != nil {
+		panic(fmt.Sprintf("bad: %v", err))
+	}
+
+	return schema
+}
+
+func main() {
+	fmt.Printf("ACL Struct to String: %+q\n", structToString().String())
+	fmt.Printf("ACL String to Struct: %#v\n", stringToStruct().String())
 }
 ```
 
 ```text
-ACL String: foo=U
-ACL Struct: pgacl.Schema{Role:"foo", Create:true, CreateGrant:true, Usage:true, UsageGrant:false}
+ACL Struct to String: "foo=UC*/bar"
+ACL String to Struct: "foo=UC*/bar"
 ```
 
 ## Supported PostgreSQL `aclitem` Types

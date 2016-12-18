@@ -1,10 +1,10 @@
-package pgacl_test
+package acl_test
 
 import (
 	"reflect"
 	"testing"
 
-	"github.com/sean-/pgacl"
+	acl "github.com/sean-/postgresql-acl"
 )
 
 func TestFunctionString(t *testing.T) {
@@ -12,84 +12,100 @@ func TestFunctionString(t *testing.T) {
 		name string
 		in   string
 		out  string
-		want pgacl.Function
+		want acl.Function
 		fail bool
 	}{
 		{
 			name: "default",
 			in:   "foo=",
 			out:  "foo=",
-			want: pgacl.Function{Role: "foo"},
+			want: acl.Function{
+				ACL: acl.ACL{
+					Role: "foo",
+				},
+			},
 		},
 		{
 			name: "all without grant",
 			in:   "foo=X",
 			out:  "foo=X",
-			want: pgacl.Function{
-				Role:    "foo",
-				Execute: true,
+			want: acl.Function{
+				ACL: acl.ACL{
+					Role:       "foo",
+					Privileges: acl.Execute,
+				},
 			},
 		},
 		{
 			name: "all with grant",
 			in:   "foo=X*",
 			out:  "foo=X*",
-			want: pgacl.Function{
-				Role:         "foo",
-				Execute:      true,
-				ExecuteGrant: true,
+			want: acl.Function{
+				ACL: acl.ACL{
+					Role:         "foo",
+					Privileges:   acl.Execute,
+					GrantOptions: acl.Execute,
+				},
 			},
 		},
 		{
 			name: "all with grant by role",
 			in:   "foo=X*/bar",
 			out:  "foo=X*/bar",
-			want: pgacl.Function{
-				Role:         "foo",
-				GrantedBy:    "bar",
-				Execute:      true,
-				ExecuteGrant: true,
+			want: acl.Function{
+				ACL: acl.ACL{
+					Role:         "foo",
+					GrantedBy:    "bar",
+					Privileges:   acl.Execute,
+					GrantOptions: acl.Execute,
+				},
 			},
 		},
 		{
 			name: "all mixed grant1",
 			in:   "foo=X*",
 			out:  "foo=X*",
-			want: pgacl.Function{
-				Role:         "foo",
-				Execute:      true,
-				ExecuteGrant: true,
+			want: acl.Function{
+				ACL: acl.ACL{
+					Role:         "foo",
+					Privileges:   acl.Execute,
+					GrantOptions: acl.Execute,
+				},
 			},
 		},
 		{
 			name: "all mixed grant2",
 			in:   "foo=X",
 			out:  "foo=X",
-			want: pgacl.Function{
-				Role:    "foo",
-				Execute: true,
+			want: acl.Function{
+				ACL: acl.ACL{
+					Role:       "foo",
+					Privileges: acl.Execute,
+				},
 			},
 		},
 		{
 			name: "public all",
 			in:   "=X*",
 			out:  "=X*",
-			want: pgacl.Function{
-				Role:         "",
-				Execute:      true,
-				ExecuteGrant: true,
+			want: acl.Function{
+				ACL: acl.ACL{
+					Role:         "",
+					Privileges:   acl.Execute,
+					GrantOptions: acl.Execute,
+				},
 			},
 		},
 		{
 			name: "invalid input1",
 			in:   "bar*",
-			want: pgacl.Function{},
+			want: acl.Function{},
 			fail: true,
 		},
 		{
 			name: "invalid input2",
 			in:   "%",
-			want: pgacl.Function{},
+			want: acl.Function{},
 			fail: true,
 		},
 	}
@@ -100,9 +116,22 @@ func TestFunctionString(t *testing.T) {
 		}
 
 		t.Run(test.name, func(t *testing.T) {
-			got, err := pgacl.NewFunction(test.in)
+			aclItem, err := acl.Parse(test.in)
 			if err != nil && !test.fail {
-				t.Fatalf("unable to parse domain ACL %+q: %v", test.in, err)
+				t.Fatalf("unable to parse ACLItem %+q: %v", test.in, err)
+			}
+
+			if err == nil && test.fail {
+				t.Fatalf("expected failure")
+			}
+
+			if test.fail && err != nil {
+				return
+			}
+
+			got, err := acl.NewFunction(aclItem)
+			if err != nil && !test.fail {
+				t.Fatalf("unable to parse function ACL %+q: %v", test.in, err)
 			}
 
 			if err == nil && test.fail {
