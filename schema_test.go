@@ -9,11 +9,13 @@ import (
 
 func TestSchemaString(t *testing.T) {
 	tests := []struct {
-		name string
-		in   string
-		out  string
-		want acl.Schema
-		fail bool
+		name    string
+		in      string
+		out     string
+		want    acl.Schema
+		grants  []string
+		revokes []string
+		fail    bool
 	}{
 		{
 			name: "default",
@@ -24,6 +26,8 @@ func TestSchemaString(t *testing.T) {
 					Role: "foo",
 				},
 			},
+			grants:  []string{},
+			revokes: []string{},
 		},
 		{
 			name: "all without grant",
@@ -34,6 +38,14 @@ func TestSchemaString(t *testing.T) {
 					Role:       "foo",
 					Privileges: acl.Create | acl.Usage,
 				},
+			},
+			grants: []string{
+				`GRANT CREATE ON SCHEMA "all without grant" TO "foo"`,
+				`GRANT USAGE ON SCHEMA "all without grant" TO "foo"`,
+			},
+			revokes: []string{
+				`REVOKE CREATE ON SCHEMA "all without grant" FROM "foo"`,
+				`REVOKE USAGE ON SCHEMA "all without grant" FROM "foo"`,
 			},
 		},
 		{
@@ -46,6 +58,14 @@ func TestSchemaString(t *testing.T) {
 					Privileges:   acl.Create | acl.Usage,
 					GrantOptions: acl.Create | acl.Usage,
 				},
+			},
+			grants: []string{
+				`GRANT CREATE ON SCHEMA "all with grant" TO "foo" WITH GRANT OPTION`,
+				`GRANT USAGE ON SCHEMA "all with grant" TO "foo" WITH GRANT OPTION`,
+			},
+			revokes: []string{
+				`REVOKE GRANT OPTION FOR CREATE ON SCHEMA "all with grant" FROM "foo"`,
+				`REVOKE GRANT OPTION FOR USAGE ON SCHEMA "all with grant" FROM "foo"`,
 			},
 		},
 		{
@@ -60,6 +80,14 @@ func TestSchemaString(t *testing.T) {
 					GrantOptions: acl.Create | acl.Usage,
 				},
 			},
+			grants: []string{
+				`GRANT CREATE ON SCHEMA "all with grant by role" TO "foo" WITH GRANT OPTION`,
+				`GRANT USAGE ON SCHEMA "all with grant by role" TO "foo" WITH GRANT OPTION`,
+			},
+			revokes: []string{
+				`REVOKE GRANT OPTION FOR CREATE ON SCHEMA "all with grant by role" FROM "foo"`,
+				`REVOKE GRANT OPTION FOR USAGE ON SCHEMA "all with grant by role" FROM "foo"`,
+			},
 		},
 		{
 			name: "all mixed grant1",
@@ -71,6 +99,14 @@ func TestSchemaString(t *testing.T) {
 					Privileges:   acl.Create | acl.Usage,
 					GrantOptions: acl.Usage,
 				},
+			},
+			grants: []string{
+				`GRANT CREATE ON SCHEMA "all mixed grant1" TO "foo"`,
+				`GRANT USAGE ON SCHEMA "all mixed grant1" TO "foo" WITH GRANT OPTION`,
+			},
+			revokes: []string{
+				`REVOKE CREATE ON SCHEMA "all mixed grant1" FROM "foo"`,
+				`REVOKE GRANT OPTION FOR USAGE ON SCHEMA "all mixed grant1" FROM "foo"`,
 			},
 		},
 		{
@@ -84,6 +120,14 @@ func TestSchemaString(t *testing.T) {
 					GrantOptions: acl.Create,
 				},
 			},
+			grants: []string{
+				`GRANT CREATE ON SCHEMA "all mixed grant2" TO "foo" WITH GRANT OPTION`,
+				`GRANT USAGE ON SCHEMA "all mixed grant2" TO "foo"`,
+			},
+			revokes: []string{
+				`REVOKE GRANT OPTION FOR CREATE ON SCHEMA "all mixed grant2" FROM "foo"`,
+				`REVOKE USAGE ON SCHEMA "all mixed grant2" FROM "foo"`,
+			},
 		},
 		{
 			name: "public all",
@@ -95,6 +139,14 @@ func TestSchemaString(t *testing.T) {
 					Privileges:   acl.Create | acl.Usage,
 					GrantOptions: acl.Create | acl.Usage,
 				},
+			},
+			grants: []string{
+				`GRANT CREATE ON SCHEMA "public all" TO PUBLIC WITH GRANT OPTION`,
+				`GRANT USAGE ON SCHEMA "public all" TO PUBLIC WITH GRANT OPTION`,
+			},
+			revokes: []string{
+				`REVOKE GRANT OPTION FOR CREATE ON SCHEMA "public all" FROM PUBLIC`,
+				`REVOKE GRANT OPTION FOR USAGE ON SCHEMA "public all" FROM PUBLIC`,
 			},
 		},
 		{
@@ -141,6 +193,16 @@ func TestSchemaString(t *testing.T) {
 
 			if !reflect.DeepEqual(test.want, got) {
 				t.Fatalf("bad: expected %v to equal %v", test.want, got)
+			}
+
+			grants := got.Grants(test.name)
+			if !reflect.DeepEqual(test.grants, grants) {
+				t.Fatalf("bad: expected %#v to equal %#v", test.grants, grants)
+			}
+
+			revokes := got.Revokes(test.name)
+			if !reflect.DeepEqual(test.revokes, revokes) {
+				t.Fatalf("bad: expected %v to equal %v", test.revokes, revokes)
 			}
 		})
 	}

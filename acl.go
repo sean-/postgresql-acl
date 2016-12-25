@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"fmt"
 	"strings"
+
+	"github.com/lib/pq"
 )
 
 // ACL represents a single PostgreSQL `aclitem` entry.
@@ -245,6 +247,16 @@ func permString(perms, grantOptions Privileges) string {
 	}
 
 	return b.String()
+}
+
+// quoteRole is a small helper function that handles the quoting of a role name,
+// or PUBLIC, if no role is specified.
+func quoteRole(role string) string {
+	if role == "" {
+		return "PUBLIC"
+	}
+
+	return pq.QuoteIdentifier(role)
 }
 
 // validRights checks to make sure a given acl's permissions and grant options
